@@ -12,6 +12,7 @@ import { AuthProvider } from "./hooks/use-auth";
 // Owner pages
 import OwnerDashboard from "@/pages/owner/dashboard";
 import OwnerRewards from "@/pages/owner/rewards";
+import OwnerGames from "@/pages/owner/games";
 import OwnerCustomers from "@/pages/owner/customers";
 import OwnerOrders from "@/pages/owner/orders";
 import OwnerSettings from "@/pages/owner/settings";
@@ -33,6 +34,7 @@ function Router() {
       {/* Owner Routes */}
       <ProtectedRoute path="/owner/dashboard" component={OwnerDashboard} />
       <ProtectedRoute path="/owner/rewards" component={OwnerRewards} />
+      <ProtectedRoute path="/owner/games" component={OwnerGames} />
       <ProtectedRoute path="/owner/customers" component={OwnerCustomers} />
       <ProtectedRoute path="/owner/orders" component={OwnerOrders} />
       <ProtectedRoute path="/owner/settings" component={OwnerSettings} />
