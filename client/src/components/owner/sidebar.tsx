@@ -71,6 +71,14 @@ export default function OwnerSidebar() {
       label: "Rewards",
     },
     {
+      href: "/owner/games",
+      icon: <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+        <circle cx="12" cy="12" r="10"></circle>
+        <path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z"></path>
+      </svg>,
+      label: "Games",
+    },
+    {
       href: "/owner/customers",
       icon: <Users className="h-5 w-5" />,
       label: "Customers",
