@@ -75,6 +75,7 @@ export interface Game {
   isActive: boolean;
   maxPlaysPerDay: number;
   createdAt: string;
+  prizes?: GamePrize[];
 }
 
 export interface GamePlay {
