@@ -29,6 +29,7 @@ function Router() {
     <Switch>
       <Route path="/" component={HomePage} />
       <Route path="/auth" component={AuthPage} />
+      {/* Special route for customer registration via cafe link - not accessible from home page */}
       <Route path="/register/customer/:cafeId" component={CustomerRegistration} />
       
       {/* Owner Routes */}

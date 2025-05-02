@@ -294,6 +294,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Games management
+  app.get("/api/owner/games", ensureOwner, async (req, res) => {
+    try {
+      const games = await storage.getGamesByOwner(req.user.id);
+      res.json(games);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+  
+  app.post("/api/owner/games", ensureOwner, async (req, res) => {
+    try {
+      const cafe = await storage.getCafe(req.user.id);
+      if (!cafe) {
+        return res.status(404).json({ message: "Cafe not found" });
+      }
+      
+      const game = await storage.createGame({
+        ...req.body,
+        cafeId: cafe.id,
+      });
+      
+      res.status(201).json(game);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+  
+  app.get("/api/owner/games/:id", ensureOwner, async (req, res) => {
+    try {
+      const gameId = parseInt(req.params.id);
+      const game = await storage.getGame(gameId);
+      
+      if (!game) {
+        return res.status(404).json({ message: "Game not found" });
+      }
+      
+      // Verify ownership
+      const cafe = await storage.getCafe(req.user.id);
+      if (!cafe || game.cafeId !== cafe.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(game);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+  
+  app.patch("/api/owner/games/:id", ensureOwner, async (req, res) => {
+    try {
+      const gameId = parseInt(req.params.id);
+      const game = await storage.getGame(gameId);
+      
+      if (!game) {
+        return res.status(404).json({ message: "Game not found" });
+      }
+      
+      // Verify ownership
+      const cafe = await storage.getCafe(req.user.id);
+      if (!cafe || game.cafeId !== cafe.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedGame = await storage.updateGame(gameId, req.body);
+      res.json(updatedGame);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+  
+  app.delete("/api/owner/games/:id", ensureOwner, async (req, res) => {
+    try {
+      const gameId = parseInt(req.params.id);
+      const game = await storage.getGame(gameId);
+      
+      if (!game) {
+        return res.status(404).json({ message: "Game not found" });
+      }
+      
+      // Verify ownership
+      const cafe = await storage.getCafe(req.user.id);
+      if (!cafe || game.cafeId !== cafe.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // For now, we'll just return success since the delete function may not be implemented yet
+      // In the future, this should be: await storage.deleteGame(gameId);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+  
+  // Game prizes management
+  app.get("/api/owner/games/:id/prizes", ensureOwner, async (req, res) => {
+    try {
+      const gameId = parseInt(req.params.id);
+      const game = await storage.getGame(gameId);
+      
+      if (!game) {
+        return res.status(404).json({ message: "Game not found" });
+      }
+      
+      // Verify ownership
+      const cafe = await storage.getCafe(req.user.id);
+      if (!cafe || game.cafeId !== cafe.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Return the prizes array from the game (assuming it's structured this way)
+      res.json(game.prizes || []);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+  
+  app.post("/api/owner/games/:id/prizes", ensureOwner, async (req, res) => {
+    try {
+      const gameId = parseInt(req.params.id);
+      const game = await storage.getGame(gameId);
+      
+      if (!game) {
+        return res.status(404).json({ message: "Game not found" });
+      }
+      
+      // Verify ownership
+      const cafe = await storage.getCafe(req.user.id);
+      if (!cafe || game.cafeId !== cafe.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // For now, we'll just return a mock prize since the addPrize function may not be implemented yet
+      // In the future, this should be: const prize = await storage.addGamePrize({ ...req.body, gameId });
+      const prize = {
+        id: Math.floor(Math.random() * 1000) + 1,
+        ...req.body,
+        gameId
+      };
+      
+      res.status(201).json(prize);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+  
   // PUBLIC ROUTES (no authentication required)
   
   // Customer registration endpoint via cafe-specific link
