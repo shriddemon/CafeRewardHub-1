@@ -47,6 +47,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Endpoint to get the customer registration URL for a cafe
+  app.get("/api/owner/customer-registration-url", ensureOwner, async (req, res) => {
+    try {
+      const cafe = await storage.getCafe(req.user.id);
+      if (!cafe) {
+        return res.status(404).json({ message: "Cafe not found" });
+      }
+      
+      // Generate a registration URL with the cafe ID
+      const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+      const registrationUrl = `${baseUrl}/register/customer/${cafe.id}`;
+      
+      res.json({ registrationUrl });
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+  
   app.patch("/api/owner/cafe", ensureOwner, async (req, res) => {
     try {
       const cafe = await storage.getCafe(req.user.id);
@@ -271,6 +289,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.json(updatedOrder);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+  
+  // PUBLIC ROUTES (no authentication required)
+  
+  // Get cafe info for customer registration
+  app.get("/api/cafes/:id", async (req, res) => {
+    try {
+      const cafeId = parseInt(req.params.id);
+      const cafe = await storage.getCafeById(cafeId);
+      
+      if (!cafe) {
+        return res.status(404).json({ message: "Cafe not found" });
+      }
+      
+      // Return only necessary information (avoid exposing sensitive info)
+      res.json({
+        id: cafe.id,
+        name: cafe.name,
+        logo: cafe.logo,
+      });
     } catch (error) {
       res.status(500).json({ message: (error as Error).message });
     }

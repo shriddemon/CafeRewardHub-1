@@ -70,13 +70,19 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Cafe owner registration endpoint
   app.post("/api/register", async (req, res, next) => {
     try {
       const { role, name, email, phone, ...userData } = req.body;
       
       // Validate required fields
-      if (!userData.username || !userData.password || !role || !name) {
+      if (!userData.username || !userData.password || !name) {
         return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Only cafe owners can register through the main registration endpoint
+      if (role !== "owner") {
+        return res.status(400).json({ message: "Only cafe owners can register through this endpoint" });
       }
 
       // Check if username already exists
@@ -90,37 +96,74 @@ export function setupAuth(app: Express) {
       const user = await storage.createUser({
         ...userData,
         password: hashedPassword,
-        role,
+        role: "owner", // Enforce owner role
         name,
         email,
         phone,
       });
 
-      // If user is a cafe owner, create a default cafe
-      if (role === "owner") {
-        await storage.createCafe({
-          name: `${name}'s Cafe`,
-          address: "",
-          phone: phone || "",
-          email: email || "",
-          whatsappEnabled: false,
-          plan: "trial",
-          ownerId: user.id,
-        });
+      // Create a default cafe for the owner
+      await storage.createCafe({
+        name: `${name}'s Cafe`,
+        address: "",
+        phone: phone || "",
+        email: email || "",
+        whatsappEnabled: false,
+        plan: "trial",
+        ownerId: user.id,
+      });
+
+      req.login(user, (err) => {
+        if (err) return next(err);
+        res.status(201).json(user);
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Customer registration endpoint - requires cafeId
+  app.post("/api/register/customer/:cafeId", async (req, res, next) => {
+    try {
+      const { name, email, phone, ...userData } = req.body;
+      const cafeId = parseInt(req.params.cafeId);
+      
+      // Validate required fields
+      if (!userData.username || !userData.password || !name) {
+        return res.status(400).json({ message: "Missing required fields" });
       }
       
-      // If user is a customer, create a default customer profile
-      if (role === "customer") {
-        await storage.createCustomerProfile({
-          userId: user.id,
-          name,
-          email,
-          phone,
-          points: 0,
-          totalOrders: 0,
-          totalSpent: 0,
-        });
+      // Verify that the cafe exists
+      const cafe = await storage.getCafeById(cafeId);
+      if (!cafe) {
+        return res.status(404).json({ message: "Cafe not found" });
       }
+
+      // Check if username already exists
+      const existingUser = await storage.getUserByUsername(userData.username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+
+      // Create the user
+      const hashedPassword = await hashPassword(userData.password);
+      const user = await storage.createUser({
+        ...userData,
+        password: hashedPassword,
+        role: "customer", // Enforce customer role
+        name,
+        email,
+        phone,
+      });
+      
+      // Create customer profile linked to the specific cafe
+      await storage.createCustomerProfile({
+        userId: user.id,
+        cafeId: cafeId,
+        points: 0,
+        totalOrders: 0,
+        totalSpent: 0,
+      });
 
       req.login(user, (err) => {
         if (err) return next(err);
