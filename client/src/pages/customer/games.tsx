@@ -5,6 +5,9 @@ import CustomerSidebar from "@/components/customer/sidebar";
 import GameCard from "@/components/customer/game-card";
 import SpinWheel from "@/components/customer/spin-wheel";
 import ScratchCard from "@/components/customer/scratch-card";
+import MemoryCardGame from "@/components/customer/memory-card-game";
+import QuizGame from "@/components/customer/quiz-game";
+import WordScrambleGame from "@/components/customer/word-scramble-game";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -280,15 +283,19 @@ export default function CustomerGames() {
             )}
             
             {selectedGame === "quiz" && (
-              <div className="space-y-4">
-                <p className="text-center">What is the specialty coffee of our cafe?</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <Button variant="outline" onClick={handleCompleteGame}>Ethiopian Blend</Button>
-                  <Button variant="outline" onClick={handleCompleteGame}>Sumatra Dark Roast</Button>
-                  <Button variant="outline" onClick={handleCompleteGame}>Colombian Supremo</Button>
-                  <Button variant="outline" onClick={handleCompleteGame}>House Special</Button>
-                </div>
-              </div>
+              <QuizGame onComplete={handleCompleteGame} />
+            )}
+            
+            {selectedGame === "memory_card" && (
+              <MemoryCardGame onComplete={handleCompleteGame} />
+            )}
+            
+            {selectedGame === "word_scramble" && (
+              <WordScrambleGame onComplete={handleCompleteGame} />
+            )}
+            
+            {selectedGame === "coffee_quiz" && (
+              <QuizGame onComplete={handleCompleteGame} />
             )}
           </div>
           

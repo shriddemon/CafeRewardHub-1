@@ -70,7 +70,7 @@ export interface Game {
   id: number;
   name: string;
   description: string;
-  type: "spin_wheel" | "scratch_card" | "quiz";
+  type: "spin_wheel" | "scratch_card" | "quiz" | "memory_card" | "word_scramble" | "coffee_quiz";
   cafeId: number;
   isActive: boolean;
   maxPlaysPerDay: number;
