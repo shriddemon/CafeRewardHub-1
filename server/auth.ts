@@ -160,9 +160,12 @@ export function setupAuth(app: Express) {
       await storage.createCustomerProfile({
         userId: user.id,
         cafeId: cafeId,
+        name: name,
+        email: email || "",
+        phone: phone || "",
         points: 0,
         totalOrders: 0,
-        totalSpent: 0,
+        totalSpent: "0",
       });
 
       req.login(user, (err) => {
