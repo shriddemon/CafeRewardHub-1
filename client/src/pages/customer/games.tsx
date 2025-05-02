@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import CustomerSidebar from "@/components/customer/sidebar";
@@ -117,13 +117,11 @@ export default function CustomerGames() {
   // Filter active games
   const activeGames = games?.filter(game => game.isActive) || [];
   
-  // Sample game prizes for demonstration
-  const samplePrizes: GamePrize[] = [
+  // Default prizes if the API doesn't return any - only used as fallback 
+  const defaultPrizes: GamePrize[] = [
     { id: 1, gameId: 1, name: "10 Points", type: "points", value: 10, probability: 30 },
     { id: 2, gameId: 1, name: "20 Points", type: "points", value: 20, probability: 20 },
     { id: 3, gameId: 1, name: "50 Points", type: "points", value: 50, probability: 10 },
-    { id: 4, gameId: 1, name: "Free Coffee", type: "reward", value: 0, probability: 5, rewardId: 1 },
-    { id: 5, gameId: 1, name: "Try Again", type: "points", value: 0, probability: 35 },
   ];
 
   return (
@@ -293,28 +291,40 @@ export default function CustomerGames() {
           </DialogHeader>
           
           <div className="py-4">
-            {selectedGame === "spin_wheel" && (
-              <SpinWheel prizes={samplePrizes} onComplete={handleCompleteGame} />
-            )}
-            
-            {selectedGame === "scratch_card" && (
-              <ScratchCard onComplete={handleCompleteGame} />
-            )}
-            
-            {selectedGame === "quiz" && (
-              <QuizGame onComplete={handleCompleteGame} />
-            )}
-            
-            {selectedGame === "memory_card" && (
-              <MemoryCardGame onComplete={handleCompleteGame} />
-            )}
-            
-            {selectedGame === "word_scramble" && (
-              <WordScrambleGame onComplete={handleCompleteGame} />
-            )}
-            
-            {selectedGame === "coffee_quiz" && (
-              <QuizGame onComplete={handleCompleteGame} />
+            {prizesLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-2">Loading game prizes...</span>
+              </div>
+            ) : (
+              <>
+                {selectedGame === "spin_wheel" && (
+                  <SpinWheel 
+                    prizes={gamePrizes.length > 0 ? gamePrizes : defaultPrizes} 
+                    onComplete={handleCompleteGame} 
+                  />
+                )}
+                
+                {selectedGame === "scratch_card" && (
+                  <ScratchCard onComplete={handleCompleteGame} />
+                )}
+                
+                {selectedGame === "quiz" && (
+                  <QuizGame onComplete={handleCompleteGame} />
+                )}
+                
+                {selectedGame === "memory_card" && (
+                  <MemoryCardGame onComplete={handleCompleteGame} />
+                )}
+                
+                {selectedGame === "word_scramble" && (
+                  <WordScrambleGame onComplete={handleCompleteGame} />
+                )}
+                
+                {selectedGame === "coffee_quiz" && (
+                  <QuizGame onComplete={handleCompleteGame} />
+                )}
+              </>
             )}
           </div>
           
