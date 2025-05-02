@@ -1,13 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 import {
   Card,
   CardContent,
@@ -27,69 +24,41 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Coffee, Loader2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, Check, Coffee } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 
 const registerSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid email").optional().or(z.literal("")),
-  phone: z.string().optional().or(z.literal("")),
+  email: z.string().email("Please enter a valid email"),
+  phone: z.string().min(10, "Phone must be at least 10 characters").optional(),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function CustomerRegistration() {
-  const params = useParams<{ cafeId: string }>();
-  const cafeId = params.cafeId;
-  const [_, setLocation] = useLocation();
-  const { user } = useAuth();
+  const { cafeId } = useParams();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
-  const [cafeName, setCafeName] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Redirect if user is already logged in
+  const { user } = useAuth();
+  
+  // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      setLocation("/");
+      navigate("/customer/dashboard");
     }
-  }, [user, setLocation]);
-
-  // Fetch cafe information
-  useEffect(() => {
-    const fetchCafeInfo = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Simple validation
-        if (!cafeId || isNaN(parseInt(cafeId))) {
-          throw new Error("Invalid cafe ID");
-        }
-        
-        // Fetch cafe details
-        const res = await fetch(`/api/cafes/${cafeId}`);
-        
-        if (!res.ok) {
-          if (res.status === 404) {
-            throw new Error("Cafe not found. This registration link may be invalid.");
-          }
-          throw new Error("Failed to fetch cafe information");
-        }
-        
-        const cafeData = await res.json();
-        setCafeName(cafeData.name);
-      } catch (err) {
-        setError((err as Error).message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchCafeInfo();
-  }, [cafeId]);
-
+  }, [user, navigate]);
+  
+  // Fetch cafe details
+  const { data: cafe, isLoading: cafeLoading, error: cafeError } = useQuery({
+    queryKey: [`/api/cafes/${cafeId}`],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!cafeId,
+  });
+  
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -100,7 +69,7 @@ export default function CustomerRegistration() {
       phone: "",
     },
   });
-
+  
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterFormValues) => {
       const res = await apiRequest("POST", `/api/register/customer/${cafeId}`, data);
@@ -108,11 +77,11 @@ export default function CustomerRegistration() {
     },
     onSuccess: () => {
       toast({
-        title: "Registration successful",
-        description: "You have been registered and logged in successfully!",
+        title: "Registration successful!",
+        description: "Welcome to our loyalty program. You can now log in.",
+        variant: "default",
       });
-      // Redirect to customer dashboard
-      setLocation("/");
+      navigate("/auth");
     },
     onError: (error: Error) => {
       toast({
@@ -122,95 +91,75 @@ export default function CustomerRegistration() {
       });
     },
   });
-
+  
   function onSubmit(data: RegisterFormValues) {
     registerMutation.mutate(data);
   }
-
-  if (isLoading) {
+  
+  if (cafeLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="mt-4 text-gray-500">Loading cafe information...</p>
       </div>
     );
   }
-
-  if (error) {
+  
+  if (cafeError || !cafe) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <div className="bg-red-50 p-4 rounded-lg max-w-md w-full text-center">
-          <h2 className="text-red-800 text-lg font-bold mb-2">Error</h2>
-          <p className="text-red-700">{error}</p>
-          <Button className="mt-4" onClick={() => window.location.href = "/"}>
-            Go to Home
-          </Button>
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Error</CardTitle>
+            <CardDescription>
+              The registration link you used is invalid or has expired.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="mb-4">Please ask the cafe owner for a new registration link.</p>
+            <Button onClick={() => navigate("/")}>Return to Home</Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
-
+  
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <div className="flex flex-col justify-center p-6 w-full lg:w-1/2">
-        <div className="mx-auto w-full max-w-md">
-          <div className="mb-6 flex items-center">
-            <Coffee className="h-10 w-10 text-primary" />
-            <h1 className="ml-2 text-3xl font-bold">CafeRewards</h1>
-          </div>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Join {cafeName}</CardTitle>
-              <CardDescription>
-                Create your customer account to start earning rewards and participating in loyalty games.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Username</FormLabel>
-                        <FormControl>
-                          <Input placeholder="username" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="••••••" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Full Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="John Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
+    <div className="min-h-screen grid md:grid-cols-2">
+      {/* Form Section */}
+      <div className="flex items-center justify-center p-4 md:p-8">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <div className="flex items-center mb-3">
+              {cafe.logo ? (
+                <img src={cafe.logo} alt={cafe.name} className="h-8 w-8 mr-2 rounded-full" />
+              ) : (
+                <Coffee className="h-6 w-6 mr-2 text-primary" />
+              )}
+              <span className="text-sm font-medium">{cafe.name}</span>
+            </div>
+            <CardTitle className="text-2xl">Join Our Loyalty Program</CardTitle>
+            <CardDescription>
+              Create an account to earn rewards and participate in our loyalty program
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter your full name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="email"
@@ -218,11 +167,8 @@ export default function CustomerRegistration() {
                       <FormItem>
                         <FormLabel>Email</FormLabel>
                         <FormControl>
-                          <Input placeholder="john@example.com" {...field} />
+                          <Input placeholder="your.email@example.com" type="email" {...field} />
                         </FormControl>
-                        <FormDescription>
-                          Optional, but helpful for account recovery
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -233,64 +179,123 @@ export default function CustomerRegistration() {
                     name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Phone</FormLabel>
+                        <FormLabel>Phone Number (optional)</FormLabel>
                         <FormControl>
-                          <Input placeholder="+91 1234567890" {...field} />
+                          <Input placeholder="Your phone number" {...field} />
                         </FormControl>
-                        <FormDescription>
-                          Optional, will be used for WhatsApp notifications if provided
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={registerMutation.isPending}
-                  >
-                    {registerMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating account...
-                      </>
-                    ) : (
-                      "Create account"
-                    )}
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-            <CardFooter className="flex flex-col items-center space-y-2">
-              <div className="text-sm text-gray-500">
-                Already have an account? <a href="/auth" className="text-primary font-medium">Sign in</a>
-              </div>
-            </CardFooter>
-          </Card>
-        </div>
+                </div>
+                
+                <Separator className="my-4" />
+                
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Choose a username" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Create a secure password" type="password" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Password must be at least 6 characters
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <Button 
+                  type="submit" 
+                  className="w-full bg-primary hover:bg-primary/90"
+                  disabled={registerMutation.isPending}
+                >
+                  {registerMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating account...
+                    </>
+                  ) : (
+                    <>
+                      Join Now
+                    </>
+                  )}
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <p className="text-xs text-gray-500">
+              Already have an account?
+            </p>
+            <Button variant="link" className="p-0" onClick={() => navigate("/auth")}>
+              Log in instead
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
       
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-r from-primary to-accent items-center justify-center text-white p-12">
-        <div className="max-w-md">
-          <h2 className="text-3xl font-bold mb-6">Welcome to {cafeName}</h2>
-          
-          <div className="space-y-6">
-            <div className="bg-white/10 p-4 rounded-lg">
-              <h3 className="font-medium text-xl mb-2">Earn Points With Every Order</h3>
-              <p>Every purchase earns you points that can be redeemed for free items, discounts, and special offers.</p>
-            </div>
+      {/* Hero Section */}
+      <div className="hidden md:flex flex-col bg-primary text-primary-foreground">
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+          <div className="max-w-md">
+            <h1 className="text-3xl font-bold mb-4">Welcome to {cafe.name}'s Loyalty Program</h1>
+            <p className="mb-8">Join our rewards program and start earning points with every visit!</p>
             
-            <div className="bg-white/10 p-4 rounded-lg">
-              <h3 className="font-medium text-xl mb-2">Play Games, Win Rewards</h3>
-              <p>Participate in fun games like spin wheels and scratch cards for a chance to win bonus points and exclusive rewards.</p>
-            </div>
-            
-            <div className="bg-white/10 p-4 rounded-lg">
-              <h3 className="font-medium text-xl mb-2">WhatsApp Notifications</h3>
-              <p>Get timely updates about your points, rewards, and special promotions directly on WhatsApp.</p>
+            <div className="space-y-6">
+              <div className="flex items-start">
+                <div className="bg-primary-foreground text-primary rounded-full p-2 mr-4">
+                  <Check className="h-5 w-5" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-medium">Earn Points</h3>
+                  <p className="text-sm opacity-90">Collect points with every purchase you make</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start">
+                <div className="bg-primary-foreground text-primary rounded-full p-2 mr-4">
+                  <Check className="h-5 w-5" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-medium">Redeem Rewards</h3>
+                  <p className="text-sm opacity-90">Exchange your points for free items, discounts and more</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start">
+                <div className="bg-primary-foreground text-primary rounded-full p-2 mr-4">
+                  <Check className="h-5 w-5" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-medium">Play Games</h3>
+                  <p className="text-sm opacity-90">Win additional rewards through fun games and activities</p>
+                </div>
+              </div>
             </div>
           </div>
+        </div>
+        <div className="p-4 text-center bg-primary-foreground/10">
+          <p className="text-sm">
+            By creating an account, you agree to {cafe.name}'s Terms and Conditions.
+          </p>
         </div>
       </div>
     </div>
