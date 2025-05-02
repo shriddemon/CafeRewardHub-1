@@ -15,6 +15,7 @@ export interface IStorage {
   
   // Cafe related methods
   getCafe: (ownerId: number) => Promise<Cafe | null>;
+  getCafeById: (id: number) => Promise<Cafe | null>;
   createCafe: (cafe: Partial<Cafe>) => Promise<Cafe>;
   updateCafe: (id: number, cafeData: Partial<Cafe>) => Promise<Cafe>;
   
@@ -85,6 +86,11 @@ export const storage: IStorage = {
   // Cafe related methods
   getCafe: async (ownerId: number) => {
     const result = await db.select().from(schema.cafes).where(eq(schema.cafes.ownerId, ownerId)).limit(1);
+    return result.length > 0 ? result[0] : null;
+  },
+  
+  getCafeById: async (id: number) => {
+    const result = await db.select().from(schema.cafes).where(eq(schema.cafes.id, id)).limit(1);
     return result.length > 0 ? result[0] : null;
   },
   
