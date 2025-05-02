@@ -403,6 +403,15 @@ export const storage: IStorage = {
     return gamePlay[0];
   },
   
+  getGamePrizes: async (gameId: number) => {
+    const result = await db.select()
+      .from(schema.gamePrizes)
+      .where(eq(schema.gamePrizes.gameId, gameId))
+      .orderBy(desc(schema.gamePrizes.value));
+    
+    return result;
+  },
+  
   // Analytics methods
   getOwnerStats: async (ownerId: number) => {
     const cafe = await storage.getCafe(ownerId);

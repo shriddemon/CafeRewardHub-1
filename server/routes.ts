@@ -731,12 +731,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Profile not found" });
       }
       
-      // In a real app, we would validate game play and determine outcome
-      // based on game logic. For demo, we'll simulate a game play
+      // Get the game to ensure it exists
+      const game = await storage.getGame(gameId);
+      if (!game) {
+        return res.status(404).json({ message: "Game not found" });
+      }
       
-      // Simulate playing the game with a random outcome
+      // Get the game prizes
+      const prizes = await storage.getGamePrizes(gameId);
+      if (prizes.length === 0) {
+        return res.status(400).json({ message: "Game has no prizes configured" });
+      }
+      
+      // Determine the outcome (win/lose) - 70% chance to win
       const result = Math.random() < 0.7 ? "win" : "lose";
-      const pointsWon = result === "win" ? Math.floor(Math.random() * 50) + 10 : 0;
+      
+      // If win, select a prize based on probability
+      let pointsWon = 0;
+      if (result === "win") {
+        // Create a weighted random selection based on probabilities
+        const totalProbability = prizes.reduce((sum, prize) => sum + prize.probability, 0);
+        let random = Math.random() * totalProbability;
+        
+        // Find the selected prize
+        let selectedPrize = prizes[0]; // Default to first prize
+        for (const prize of prizes) {
+          random -= prize.probability;
+          if (random <= 0) {
+            selectedPrize = prize;
+            break;
+          }
+        }
+        
+        // Award points based on the prize
+        pointsWon = selectedPrize.value;
+      }
       
       // Update customer points
       await storage.updateCustomerProfile(profile.id, {

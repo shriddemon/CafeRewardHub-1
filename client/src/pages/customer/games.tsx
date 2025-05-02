@@ -23,6 +23,7 @@ export default function CustomerGames() {
   const [activeGame, setActiveGame] = useState<Game | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedGame, setSelectedGame] = useState<string>("spin_wheel");
+  const [gamePrizes, setGamePrizes] = useState<GamePrize[]>([]);
   
   const { data: games, isLoading } = useQuery<Game[]>({
     queryKey: ["/api/customer/games"],
@@ -31,6 +32,24 @@ export default function CustomerGames() {
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["/api/customer/profile"],
   });
+  
+  // Query for game prizes when a game is selected
+  const { data: prizes, isLoading: prizesLoading, refetch: refetchPrizes } = useQuery<GamePrize[]>({
+    queryKey: ["/api/customer/games", activeGame?.id, "prizes"],
+    queryFn: async () => {
+      if (!activeGame) return [];
+      const res = await apiRequest("GET", `/api/customer/games/${activeGame.id}/prizes`);
+      return res.json();
+    },
+    enabled: !!activeGame, // Only run when activeGame is set
+  });
+  
+  // Update gamePrizes state when prizes data changes
+  useEffect(() => {
+    if (prizes && prizes.length > 0) {
+      setGamePrizes(prizes);
+    }
+  }, [prizes]);
   
   const playGameMutation = useMutation({
     mutationFn: async (gameId: number) => {
