@@ -28,6 +28,7 @@ function Router() {
     <Switch>
       <Route path="/" component={HomePage} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/register/customer/:cafeId" component={CustomerRegistration} />
       
       {/* Owner Routes */}
       <ProtectedRoute path="/owner/dashboard" component={OwnerDashboard} />

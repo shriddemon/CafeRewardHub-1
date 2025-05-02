@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import OwnerSidebar from "@/components/owner/sidebar";
+import CustomerRegistrationQR from "@/components/owner/customer-registration-qr";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -163,6 +164,7 @@ export default function OwnerSettings() {
           <TabsList className="mb-8">
             <TabsTrigger value="profile">Cafe Profile</TabsTrigger>
             <TabsTrigger value="whatsapp">WhatsApp Integration</TabsTrigger>
+            <TabsTrigger value="customers">Customer Registration</TabsTrigger>
             <TabsTrigger value="subscription">Subscription</TabsTrigger>
           </TabsList>
           
@@ -398,6 +400,10 @@ export default function OwnerSettings() {
                 </Form>
               </CardContent>
             </Card>
+          </TabsContent>
+          
+          <TabsContent value="customers">
+            <CustomerRegistrationQR />
           </TabsContent>
           
           <TabsContent value="subscription">
