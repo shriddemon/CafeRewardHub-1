@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
-import { getQueryFn } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
+import { apiRequest } from "@/lib/queryClient";
 import {
   Card,
   CardContent,
@@ -11,213 +11,283 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Copy, Download, Loader2, QrCode, Share } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, QrCode, Users, Copy, Share2, Link as LinkIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
+// QR Code component that renders a QR code
 interface QRCodeDisplayProps {
   url: string;
 }
 
 function QRCodeDisplay({ url }: QRCodeDisplayProps) {
-  // This is a simple placeholder for QR code display
-  // In a real implementation, you'd use a library like qrcode.react
-  return (
-    <div className="flex flex-col items-center justify-center p-8">
-      <div className="relative w-64 h-64 bg-white border border-gray-200 rounded-lg flex items-center justify-center mb-4">
-        <QrCode size={200} className="text-primary" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <p className="text-xs text-gray-500">QR Code for {url}</p>
-        </div>
+  const [qrCodeSvg, setQrCodeSvg] = useState<string>("");
+  
+  useEffect(() => {
+    async function generateQRCode() {
+      try {
+        // We'll use a simple SVG-based QR code here
+        const res = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}&format=svg`);
+        const svg = await res.text();
+        setQrCodeSvg(svg);
+      } catch (error) {
+        console.error("Failed to generate QR code:", error);
+      }
+    }
+    
+    if (url) {
+      generateQRCode();
+    }
+  }, [url]);
+  
+  if (!qrCodeSvg) {
+    return (
+      <div className="h-[200px] w-[200px] flex items-center justify-center bg-gray-100 rounded-lg">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
-      <p className="text-sm text-gray-500 mb-4 text-center">
-        Scan this QR code or share the link to allow customers to register for your cafe's loyalty program
-      </p>
+    );
+  }
+  
+  return (
+    <div className="flex justify-center">
+      <div 
+        className="h-[200px] w-[200px] bg-white p-2 rounded-lg"
+        dangerouslySetInnerHTML={{ __html: qrCodeSvg }}
+      />
     </div>
   );
 }
 
 export default function CustomerRegistrationQR() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("qrcode");
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<string>("qr-code");
   
-  // Fetch registration URL from API
+  // Fetch the customer registration URL
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/owner/customer-registration-url"],
-    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!user && user.role === "owner",
   });
-
-  // Copy URL to clipboard
-  const copyToClipboard = () => {
-    if (data?.registrationUrl) {
-      navigator.clipboard.writeText(data.registrationUrl)
-        .then(() => {
-          toast({
-            title: "Link copied",
-            description: "The registration link has been copied to your clipboard.",
-          });
-        })
-        .catch(() => {
-          toast({
-            title: "Copy failed",
-            description: "Failed to copy the link. Please try again.",
-            variant: "destructive",
-          });
+  
+  const registrationUrl = data?.registrationUrl || "";
+  
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(
+      () => {
+        toast({
+          title: "Copied!",
+          description: "Link copied to clipboard",
         });
-    }
+      },
+      (err) => {
+        console.error("Failed to copy text: ", err);
+        toast({
+          title: "Failed to copy",
+          description: "Could not copy the link to clipboard",
+          variant: "destructive",
+        });
+      }
+    );
   };
-
-  // Simulated QR code download
-  const downloadQRCode = () => {
-    toast({
-      title: "QR Code downloaded",
-      description: "The QR code has been downloaded successfully.",
-    });
-  };
-
-  // Simulated share functionality
+  
   const shareLink = () => {
-    if (navigator.share && data?.registrationUrl) {
+    if (navigator.share) {
       navigator.share({
-        title: "Join our loyalty program",
-        text: "Register for our cafe's loyalty program to earn rewards!",
-        url: data.registrationUrl,
+        title: "Register for our loyalty program",
+        text: "Join our loyalty program and start earning rewards!",
+        url: registrationUrl,
       })
       .then(() => {
         toast({
           title: "Link shared",
-          description: "The registration link has been shared.",
+          description: "Registration link has been shared successfully",
         });
       })
-      .catch(() => {
-        toast({
-          title: "Share failed",
-          description: "Failed to share the link. Please try copying instead.",
-          variant: "destructive",
-        });
+      .catch((error) => {
+        console.error("Error sharing:", error);
       });
     } else {
-      copyToClipboard();
+      copyToClipboard(registrationUrl);
     }
   };
-
+  
   if (isLoading) {
     return (
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle>Customer Registration</CardTitle>
-          <CardDescription>
-            Generate links and QR codes for customer registration
-          </CardDescription>
+          <CardDescription>Generate registration links and QR codes for your customers</CardDescription>
         </CardHeader>
-        <CardContent className="flex justify-center p-6">
+        <CardContent className="flex justify-center py-10">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </CardContent>
       </Card>
     );
   }
-
+  
   if (error) {
     return (
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle>Customer Registration</CardTitle>
-          <CardDescription>
-            Generate links and QR codes for customer registration
-          </CardDescription>
+          <CardDescription>Generate registration links and QR codes for your customers</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-red-500">
-            Error loading registration link. Please try again later.
-          </p>
+          <div className="text-center py-8">
+            <p className="text-destructive mb-4">Failed to load registration information</p>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Try Again
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
   }
-
+  
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader>
-        <CardTitle>Customer Registration</CardTitle>
+        <div className="flex items-center space-x-2">
+          <Users className="h-5 w-5 text-primary" />
+          <CardTitle>Customer Registration</CardTitle>
+        </div>
         <CardDescription>
-          Generate links and QR codes for customer registration
+          Share registration links or QR codes with your customers so they can join your loyalty program
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="qrcode" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="qrcode">QR Code</TabsTrigger>
-            <TabsTrigger value="link">Link</TabsTrigger>
+        <Tabs defaultValue="qr-code" value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-6 grid grid-cols-2">
+            <TabsTrigger value="qr-code" className="flex items-center">
+              <QrCode className="h-4 w-4 mr-2" />
+              QR Code
+            </TabsTrigger>
+            <TabsTrigger value="link" className="flex items-center">
+              <LinkIcon className="h-4 w-4 mr-2" />
+              Registration Link
+            </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="qrcode" className="mt-4">
-            {data?.registrationUrl && <QRCodeDisplay url={data.registrationUrl} />}
-            
-            <div className="flex justify-center space-x-2 mt-2">
-              <Button size="sm" variant="outline" onClick={downloadQRCode}>
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </Button>
+          <TabsContent value="qr-code" className="space-y-6">
+            <div className="bg-gray-50 p-6 rounded-lg flex flex-col items-center">
+              <div className="mb-4 text-center">
+                <h3 className="font-medium text-lg">Customer Registration QR Code</h3>
+                <p className="text-sm text-gray-500">
+                  Customers can scan this QR code to register for your loyalty program
+                </p>
+              </div>
               
-              <Button size="sm" variant="outline" onClick={shareLink}>
-                <Share className="h-4 w-4 mr-2" />
-                Share
-              </Button>
+              <QRCodeDisplay url={registrationUrl} />
+              
+              <div className="mt-6 flex space-x-2 justify-center w-full">
+                <Button
+                  variant="outline"
+                  className="flex items-center"
+                  onClick={() => {
+                    // For an actual implementation, we'd use a library to generate and download the QR code
+                    // This is a simplified version for demonstration
+                    const link = document.createElement("a");
+                    link.href = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(registrationUrl)}&format=png&download=1`;
+                    link.setAttribute("download", "customer-registration-qr.png");
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="mr-2"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download
+                </Button>
+                
+                <Button 
+                  variant="secondary"
+                  className="flex items-center"
+                  onClick={() => {
+                    shareLink();
+                  }}
+                >
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Share
+                </Button>
+              </div>
+            </div>
+            
+            <div className="px-4 py-3 bg-accent/30 rounded-lg">
+              <p className="text-sm">
+                <strong>Tip:</strong> Print this QR code and place it at your counter or on your menu to allow customers to register easily.
+              </p>
             </div>
           </TabsContent>
           
-          <TabsContent value="link" className="mt-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="registration-link">Registration Link</Label>
-                <div className="flex space-x-2">
-                  <Input
-                    id="registration-link"
-                    value={data?.registrationUrl || ""}
-                    readOnly
-                    className="font-mono text-xs"
-                  />
-                  <Button variant="outline" size="icon" onClick={copyToClipboard}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
+          <TabsContent value="link" className="space-y-6">
+            <div className="bg-gray-50 p-6 rounded-lg">
+              <div className="mb-4">
+                <h3 className="font-medium text-lg">Customer Registration Link</h3>
                 <p className="text-sm text-gray-500">
-                  Share this link with your customers to let them register for your loyalty program
+                  Share this link with your customers to join your loyalty program
                 </p>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="embed-code">Embed Code</Label>
-                <div className="flex space-x-2">
-                  <Input
-                    id="embed-code"
-                    value={`<a href="${data?.registrationUrl || ""}">Join our loyalty program</a>`}
-                    readOnly
-                    className="font-mono text-xs"
-                  />
-                  <Button variant="outline" size="icon" onClick={() => {
-                    navigator.clipboard.writeText(`<a href="${data?.registrationUrl || ""}">Join our loyalty program</a>`);
-                    toast({
-                      title: "Code copied",
-                      description: "The embed code has been copied to your clipboard.",
-                    });
-                  }}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="text-sm text-gray-500">
-                  Use this code to add a registration link to your website
-                </p>
+              <div className="flex space-x-2">
+                <Input 
+                  readOnly 
+                  value={registrationUrl}
+                  className="font-mono text-sm bg-white"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => copyToClipboard(registrationUrl)}
+                  title="Copy to clipboard"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
               </div>
+              
+              <div className="mt-6 space-y-2">
+                <Button 
+                  className="w-full"
+                  onClick={() => {
+                    shareLink();
+                  }}
+                >
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Share Registration Link
+                </Button>
+              </div>
+            </div>
+            
+            <div className="px-4 py-3 bg-accent/30 rounded-lg">
+              <p className="text-sm">
+                <strong>Tip:</strong> You can send this link to customers via email, SMS, or social media. Customers who register will be automatically linked to your cafe.
+              </p>
             </div>
           </TabsContent>
         </Tabs>
       </CardContent>
-      <CardFooter className="flex justify-between border-t p-4">
-        <p className="text-xs text-gray-500">
-          Customers who register through this link will be automatically associated with your cafe
-        </p>
+      <CardFooter className="border-t pt-6 flex flex-col items-start">
+        <h4 className="font-medium mb-2">How it works</h4>
+        <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
+          <li>Share the registration link or QR code with your customers</li>
+          <li>Customers click the link or scan the QR code to access the registration page</li>
+          <li>They create an account that's automatically linked to your cafe</li>
+          <li>Once registered, they can start earning and redeeming rewards</li>
+        </ol>
       </CardFooter>
     </Card>
   );

@@ -296,6 +296,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // PUBLIC ROUTES (no authentication required)
   
+  // Customer registration endpoint via cafe-specific link
+  app.post("/api/register/customer/:cafeId", async (req, res) => {
+    try {
+      const cafeId = parseInt(req.params.cafeId);
+      const cafe = await storage.getCafeById(cafeId);
+      
+      if (!cafe) {
+        return res.status(404).json({ message: "Cafe not found" });
+      }
+      
+      // Create user account first
+      const userData = {
+        username: req.body.username,
+        password: req.body.password,
+        role: "customer"
+      };
+      
+      const user = await storage.createUser(userData);
+      
+      // Then create customer profile linked to the cafe
+      const customerData = {
+        userId: user.id,
+        cafeId: cafe.id,
+        name: req.body.name,
+        email: req.body.email,
+        phone: req.body.phone,
+        points: 0,
+        totalOrders: 0,
+        totalSpent: 0
+      };
+      
+      const customer = await storage.createCustomerProfile(customerData);
+      
+      // If WhatsApp is enabled for the cafe and customer provided a phone number,
+      // send a welcome message
+      if (cafe.whatsappEnabled && cafe.whatsappNumber && customer.phone) {
+        sendWhatsAppNotification(
+          customer.phone,
+          "points_earned",
+          {
+            cafe_name: cafe.name,
+            points: "50", // Welcome bonus
+            total_points: "50"
+          }
+        );
+      }
+      
+      res.status(201).json({ message: "Registration successful" });
+    } catch (error) {
+      // Handle duplicate username error specifically
+      if ((error as Error).message.includes("duplicate key")) {
+        return res.status(400).json({ message: "Username already exists. Please choose another username." });
+      }
+      
+      console.error("Error during customer registration:", error);
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+  
   // Get cafe info for customer registration
   app.get("/api/cafes/:id", async (req, res) => {
     try {

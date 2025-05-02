@@ -633,7 +633,10 @@ export default function OwnerSettings() {
                           </ul>
                         </CardContent>
                         <div className="px-6 pb-6">
-                          <Button className={cafe?.plan === "professional" ? "bg-secondary" : "bg-primary"} variant="default" className="w-full">
+                          <Button 
+                            variant="default" 
+                            className={`w-full ${cafe?.plan === "professional" ? "bg-secondary" : "bg-primary"}`}
+                          >
                             {cafe?.plan === "professional" ? "Current Plan" : "Choose Plan"}
                           </Button>
                         </div>
