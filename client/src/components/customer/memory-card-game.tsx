@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Coffee, Gift, Star, Trophy, Heart, Cake, PizzaIcon, IceCream, Candy } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { 
+  Coffee, CupSoda, Croissant, Pizza, Cake, IceCream, Salad, Sandwich, 
+  Loader2, Trophy, TimerReset
+} from "lucide-react";
+import { motion } from "framer-motion";
 
 interface MemoryCardGameProps {
   onComplete: () => void;
@@ -15,126 +21,172 @@ type Card = {
 
 export default function MemoryCardGame({ onComplete }: MemoryCardGameProps) {
   const [cards, setCards] = useState<Card[]>([]);
-  const [flippedCards, setFlippedCards] = useState<number[]>([]);
-  const [matchedPairs, setMatchedPairs] = useState<number>(0);
-  const [moves, setMoves] = useState<number>(0);
-  const [gameStarted, setGameStarted] = useState<boolean>(false);
-  const [gameCompleted, setGameCompleted] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [flippedCount, setFlippedCount] = useState(0);
+  const [flippedIndexes, setFlippedIndexes] = useState<number[]>([]);
+  const [moves, setMoves] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+  const [matchedPairs, setMatchedPairs] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(60); // 60 seconds to complete the game
 
-  // Define the icons for the memory game
-  const icons = [
-    <Coffee className="h-8 w-8" />,
-    <Gift className="h-8 w-8" />,
-    <Star className="h-8 w-8" />,
-    <Trophy className="h-8 w-8" />,
-    <Heart className="h-8 w-8" />,
-    <Cake className="h-8 w-8" />,
-    <PizzaIcon className="h-8 w-8" />,
-    <IceCream className="h-8 w-8" />,
-  ];
+  // Initialize game
+  useEffect(() => {
+    const icons = [
+      <Coffee className="h-10 w-10 text-amber-700" />,
+      <CupSoda className="h-10 w-10 text-blue-500" />,
+      <Croissant className="h-10 w-10 text-yellow-600" />,
+      <Pizza className="h-10 w-10 text-red-500" />,
+      <Cake className="h-10 w-10 text-pink-500" />,
+      <IceCream className="h-10 w-10 text-cyan-500" />,
+      <Salad className="h-10 w-10 text-green-500" />,
+      <Sandwich className="h-10 w-10 text-orange-500" />
+    ];
 
-  // Initialize the game
-  const initializeGame = () => {
-    // Create pairs of cards with the same icon
+    // Create pairs of cards
     const cardPairs = icons.map((icon, index) => [
-      { id: index * 2, icon, isFlipped: false, isMatched: false },
-      { id: index * 2 + 1, icon, isFlipped: false, isMatched: false },
+      {
+        id: index * 2,
+        icon,
+        isFlipped: false,
+        isMatched: false
+      },
+      {
+        id: index * 2 + 1,
+        icon,
+        isFlipped: false,
+        isMatched: false
+      }
     ]).flat();
 
-    // Shuffle the cards
+    // Shuffle cards
     const shuffledCards = [...cardPairs].sort(() => Math.random() - 0.5);
-    
     setCards(shuffledCards);
-    setFlippedCards([]);
     setMatchedPairs(0);
     setMoves(0);
-    setGameStarted(true);
-    setGameCompleted(false);
+  }, []);
+
+  // Timer
+  useEffect(() => {
+    if (timeLeft <= 0 || gameOver) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setTimeLeft(timeLeft - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [timeLeft, gameOver]);
+
+  // Check if game is over
+  useEffect(() => {
+    if (matchedPairs === 8) {
+      setGameOver(true);
+      setTimeout(() => {
+        setLoading(true);
+        setTimeout(() => {
+          onComplete();
+        }, 1500);
+      }, 1000);
+    }
+
+    if (timeLeft === 0 && !gameOver) {
+      setGameOver(true);
+      setTimeout(() => {
+        setLoading(true);
+        setTimeout(() => {
+          onComplete();
+        }, 1500);
+      }, 1000);
+    }
+  }, [matchedPairs, timeLeft, gameOver, onComplete]);
+
+  // Handle card flip
+  const flipCard = (id: number) => {
+    // Don't allow flips while checking for matches
+    if (flippedCount === 2) return;
+    
+    // Find the card that was clicked
+    setCards(prevCards => {
+      return prevCards.map(card => {
+        // If this card was clicked and it's not already flipped, flip it
+        if (card.id === id && !card.isFlipped && !card.isMatched) {
+          // Add this card's index to flippedIndexes
+          setFlippedCount(flippedCount + 1);
+          setFlippedIndexes([...flippedIndexes, id]);
+          return { ...card, isFlipped: true };
+        }
+        return card;
+      });
+    });
   };
 
-  // Handle card click
-  const handleCardClick = (id: number) => {
-    // Don't allow more than 2 cards to be flipped at once
-    if (flippedCards.length === 2) return;
-    
-    // Don't allow clicking on already matched or flipped cards
-    const clickedCard = cards.find(card => card.id === id);
-    if (!clickedCard || clickedCard.isMatched || flippedCards.includes(id)) return;
-    
-    // Flip the card
-    const newFlippedCards = [...flippedCards, id];
-    setFlippedCards(newFlippedCards);
-    
-    // Update the cards state
-    const newCards = cards.map(card => 
-      card.id === id ? { ...card, isFlipped: true } : card
-    );
-    setCards(newCards);
-    
-    // If two cards are flipped, check for a match
-    if (newFlippedCards.length === 2) {
-      setMoves(prev => prev + 1);
+  // Check for matches
+  useEffect(() => {
+    // If we have flipped 2 cards, check if they match
+    if (flippedCount === 2) {
+      setMoves(moves + 1);
       
-      const [firstId, secondId] = newFlippedCards;
-      const firstCard = newCards.find(card => card.id === firstId);
-      const secondCard = newCards.find(card => card.id === secondId);
+      const flippedCardIds = flippedIndexes;
+      const flippedCards = cards.filter(card => flippedCardIds.includes(card.id));
       
-      // Check if the icons match
-      if (firstCard && secondCard && 
-          firstCard.icon.type === secondCard.icon.type) {
+      // Do the icons match?
+      if (flippedCards[0].icon.type === flippedCards[1].icon.type) {
         // Mark the cards as matched
-        const updatedCards = newCards.map(card => 
-          card.id === firstId || card.id === secondId 
-            ? { ...card, isMatched: true } 
-            : card
-        );
-        setCards(updatedCards);
-        setFlippedCards([]);
-        setMatchedPairs(prev => prev + 1);
-        
-        // Check if all pairs are matched
-        if (matchedPairs + 1 === icons.length) {
-          setGameCompleted(true);
-          setTimeout(() => {
-            setLoading(true);
-            setTimeout(() => {
-              onComplete();
-            }, 1500);
-          }, 1000);
-        }
+        setCards(prevCards => {
+          return prevCards.map(card => {
+            if (flippedCardIds.includes(card.id)) {
+              return { ...card, isMatched: true };
+            }
+            return card;
+          });
+        });
+        setMatchedPairs(matchedPairs + 1);
+        resetFlippedState();
       } else {
-        // If no match, flip the cards back after a delay
+        // No match, flip them back after a delay
         setTimeout(() => {
-          setCards(newCards.map(card => 
-            newFlippedCards.includes(card.id) 
-              ? { ...card, isFlipped: false } 
-              : card
-          ));
-          setFlippedCards([]);
+          setCards(prevCards => {
+            return prevCards.map(card => {
+              if (flippedCardIds.includes(card.id) && !card.isMatched) {
+                return { ...card, isFlipped: false };
+              }
+              return card;
+            });
+          });
+          resetFlippedState();
         }, 1000);
       }
     }
+  }, [flippedCount, flippedIndexes]);
+
+  // Reset flipped state
+  const resetFlippedState = () => {
+    setFlippedCount(0);
+    setFlippedIndexes([]);
   };
 
-  // Auto-start the game on component mount
-  useEffect(() => {
-    initializeGame();
-  }, []);
-
-  if (!gameStarted) {
-    return (
-      <div className="flex flex-col items-center justify-center p-4 space-y-4">
-        <h3 className="text-xl font-semibold text-center">Memory Card Game</h3>
-        <p className="text-center text-gray-600">
-          Match all pairs of cards to win points!
-        </p>
-        <Button onClick={initializeGame} className="mt-4">
-          Start Game
-        </Button>
-      </div>
-    );
-  }
+  // Restart the game
+  const restartGame = () => {
+    const shuffledCards = [...cards]
+      .map(card => ({ ...card, isFlipped: false, isMatched: false }))
+      .sort(() => Math.random() - 0.5);
+      
+    setCards(shuffledCards);
+    setFlippedCount(0);
+    setFlippedIndexes([]);
+    setMoves(0);
+    setMatchedPairs(0);
+    setGameOver(false);
+    setTimeLeft(60);
+  };
+  
+  // Format time as MM:SS
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
 
   if (loading) {
     return (
@@ -146,38 +198,79 @@ export default function MemoryCardGame({ onComplete }: MemoryCardGameProps) {
   }
 
   return (
-    <div className="flex flex-col items-center p-4">
-      <div className="flex justify-between w-full mb-4">
-        <div className="bg-primary/10 px-3 py-1 rounded-full">
-          <span className="font-medium">Moves: {moves}</span>
+    <div className="flex flex-col p-4">
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center">
+          <span className="text-sm font-medium mr-2">Moves: {moves}</span>
+          <span className="text-sm font-medium">Pairs: {matchedPairs}/8</span>
         </div>
-        <div className="bg-primary/10 px-3 py-1 rounded-full">
-          <span className="font-medium">Pairs: {matchedPairs}/{icons.length}</span>
+        <div className="flex items-center">
+          <TimerReset className="h-4 w-4 mr-1" />
+          <span className={`text-sm font-medium ${timeLeft < 10 ? 'text-red-500' : ''}`}>
+            {formatTime(timeLeft)}
+          </span>
         </div>
       </div>
-
+      
+      <Progress value={(timeLeft / 60) * 100} className="h-2 mb-4" />
+      
       <div className="grid grid-cols-4 gap-2 mb-4">
         {cards.map((card) => (
-          <div
+          <motion.div
             key={card.id}
-            onClick={() => handleCardClick(card.id)}
-            className={`w-16 h-16 cursor-pointer flex items-center justify-center rounded-lg transition-all duration-300 ${
-              card.isFlipped
-                ? card.isMatched
-                  ? "bg-green-100 text-green-600"
-                  : "bg-primary text-white"
-                : "bg-gray-100"
-            } ${card.isMatched ? "cursor-default" : ""}`}
+            className={`aspect-square cursor-pointer bg-gradient-to-br ${
+              card.isMatched 
+                ? 'from-green-100 to-green-200 border-green-300' 
+                : card.isFlipped 
+                  ? 'from-blue-100 to-blue-200 border-blue-300' 
+                  : 'from-gray-100 to-gray-200 border-gray-300'
+            } rounded-lg border-2 flex items-center justify-center shadow-sm`}
+            onClick={() => !card.isFlipped && !card.isMatched && !gameOver ? flipCard(card.id) : null}
+            initial={{ rotateY: 0 }}
+            animate={{ rotateY: card.isFlipped ? 180 : 0 }}
+            transition={{ duration: 0.4 }}
           >
-            {card.isFlipped ? card.icon : null}
-          </div>
+            {(card.isFlipped || card.isMatched) && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                {card.icon}
+              </motion.div>
+            )}
+          </motion.div>
         ))}
       </div>
-
-      {gameCompleted && (
-        <div className="mt-4 text-center">
-          <h3 className="text-xl font-semibold text-green-600 mb-2">Congratulations!</h3>
-          <p>You've matched all pairs in {moves} moves!</p>
+      
+      {gameOver && (
+        <div className="text-center">
+          {matchedPairs === 8 ? (
+            <div className="flex flex-col items-center">
+              <Trophy className="h-10 w-10 text-amber-500 mb-2" />
+              <p className="font-medium text-lg">Congratulations!</p>
+              <p className="text-sm text-gray-600 mb-4">
+                You completed the game in {moves} moves!
+              </p>
+            </div>
+          ) : (
+            <div className="mb-4">
+              <p className="font-medium">Time's up!</p>
+              <p className="text-sm text-gray-600">
+                You matched {matchedPairs} out of 8 pairs.
+              </p>
+            </div>
+          )}
+          
+          <Button onClick={restartGame} variant="outline" className="mr-2">
+            Play Again
+          </Button>
+          <Button onClick={() => {
+            setLoading(true);
+            setTimeout(() => onComplete(), 1000);
+          }}>
+            Claim Reward
+          </Button>
         </div>
       )}
     </div>

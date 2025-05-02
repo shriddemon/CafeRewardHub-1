@@ -732,6 +732,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: new Date().toISOString(),
       });
       
+      games.push({
+        id: 4,
+        name: "Memory Match",
+        description: "Match food & drink pairs to win rewards!",
+        type: "memory_card",
+        cafeId: profile.cafeId,
+        isActive: true,
+        maxPlaysPerDay: 1,
+        createdAt: new Date().toISOString(),
+      });
+      
+      games.push({
+        id: 5,
+        name: "Word Scramble",
+        description: "Unscramble coffee-related words to earn points!",
+        type: "word_scramble",
+        cafeId: profile.cafeId,
+        isActive: true,
+        maxPlaysPerDay: 1,
+        createdAt: new Date().toISOString(),
+      });
+      
       res.json(games);
     } catch (error) {
       res.status(500).json({ message: (error as Error).message });
