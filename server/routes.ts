@@ -695,64 +695,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Profile not found" });
       }
       
-      // Get all active games for the customer's cafe
-      const games = [];
+      if (!profile.cafeId) {
+        return res.status(400).json({ message: "Customer is not associated with a cafe" });
+      }
       
-      // Add sample games for demo
-      games.push({
-        id: 1,
-        name: "Spin & Win",
-        description: "Spin the wheel to win exciting rewards!",
-        type: "spin_wheel",
-        cafeId: profile.cafeId,
-        isActive: true,
-        maxPlaysPerDay: 1,
-        createdAt: new Date().toISOString(),
-      });
+      // Get the cafe
+      const cafe = await storage.getCafeById(profile.cafeId);
+      if (!cafe) {
+        return res.status(404).json({ message: "Cafe not found" });
+      }
       
-      games.push({
-        id: 2,
-        name: "Scratch Card",
-        description: "Scratch and reveal your prize!",
-        type: "scratch_card",
-        cafeId: profile.cafeId,
-        isActive: true,
-        maxPlaysPerDay: 1,
-        createdAt: new Date().toISOString(),
-      });
+      // Get all games for the customer's cafe from the database
+      const allGames = await storage.getGamesByOwner(cafe.ownerId);
       
-      games.push({
-        id: 3,
-        name: "Coffee Quiz",
-        description: "Test your coffee knowledge and win points!",
-        type: "quiz",
-        cafeId: profile.cafeId,
-        isActive: true,
-        maxPlaysPerDay: 1,
-        createdAt: new Date().toISOString(),
-      });
+      // Filter to only active games
+      const games = allGames.filter(game => game.isActive);
       
-      games.push({
-        id: 4,
-        name: "Memory Match",
-        description: "Match food & drink pairs to win rewards!",
-        type: "memory_card",
-        cafeId: profile.cafeId,
-        isActive: true,
-        maxPlaysPerDay: 1,
-        createdAt: new Date().toISOString(),
-      });
-      
-      games.push({
-        id: 5,
-        name: "Word Scramble",
-        description: "Unscramble coffee-related words to earn points!",
-        type: "word_scramble",
-        cafeId: profile.cafeId,
-        isActive: true,
-        maxPlaysPerDay: 1,
-        createdAt: new Date().toISOString(),
-      });
+      // For each game, get the prizes
+      for (const game of games) {
+        const prizes = await storage.getGamePrizes(game.id);
+        game.prizes = prizes;
+      }
       
       res.json(games);
     } catch (error) {

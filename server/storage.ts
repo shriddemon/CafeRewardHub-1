@@ -51,6 +51,7 @@ export interface IStorage {
   createGame: (game: Partial<Game>) => Promise<Game>;
   updateGame: (id: number, gameData: Partial<Game>) => Promise<Game>;
   playGame: (customerId: number, gameId: number) => Promise<GamePlay>;
+  getGamePrizes: (gameId: number) => Promise<GamePrize[]>;
   
   // Analytics methods
   getOwnerStats: (ownerId: number) => Promise<any>;
