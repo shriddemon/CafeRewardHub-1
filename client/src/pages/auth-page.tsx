@@ -77,7 +77,7 @@ export default function AuthPage() {
     defaultValues: {
       username: "",
       password: "",
-      role: "customer",
+      role: "owner", // Default to owner since customer registration is only through cafe-specific links
       name: "",
       email: "",
       phone: "",
@@ -171,7 +171,7 @@ export default function AuthPage() {
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="owner">Cafe Owner</SelectItem>
-                              <SelectItem value="customer">Customer</SelectItem>
+                              {/* Customer registration is only through cafe-specific links */}
                             </SelectContent>
                           </Select>
                           <FormMessage />

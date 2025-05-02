@@ -153,7 +153,7 @@ export default function CustomerRegistrationQR() {
           <CardTitle>Customer Registration</CardTitle>
         </div>
         <CardDescription>
-          Share registration links or QR codes with your customers so they can join your loyalty program
+          <strong>Important:</strong> Customers can ONLY register through these cafe-specific links or QR codes
         </CardDescription>
       </CardHeader>
       <CardContent>
